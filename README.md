@@ -1,6 +1,6 @@
 # top-views
 
-Finds the **top 5 most-viewed videos** on a TikTok, Instagram (Reels) and Facebook (Reels) profile, sorted by the real view count. Prints a table in the terminal and saves an HTML report and a CSV.
+Finds the **top most-viewed videos** (10 by default, set with `--top`) on a TikTok, Instagram (Reels) and Facebook (Reels) profile, sorted by the real view count. Prints a table in the terminal and saves an HTML report and a CSV.
 
 Works on public data only. No API keys, no account access to the profile being checked.
 
@@ -56,7 +56,7 @@ The `python3` that ships with macOS is 3.9, which is too old. Install a newer on
    ```sh
    ./top-views https://www.tiktok.com/@abi_asija
    ```
-   You should see a table of 5 videos. Reports are saved in the `reports/` folder.
+   You should see a table of 10 videos. Reports are saved in the `reports/` folder.
 
 ## Usage
 
@@ -82,6 +82,7 @@ Output:
 
 | Option | What it does |
 |---|---|
+| `--top N` | How many top videos per platform (default: 10). E.g. `--top 5`, `--top 20`. |
 | `--cookies-from-browser chrome` | Uses your Chrome login. Needed for the **full** Instagram and Facebook list (see below). |
 | `--cookies-from-browser chrome:<profile dir>` | Same, for a specific Chrome profile folder. |
 | `--cookies-from-browser playwright:<profile dir>` | For a Playwright-launched Chrome profile (e.g. `~/Library/Caches/ms-playwright-mcp/mcp-chrome-xxxx/Default`). |
@@ -91,7 +92,7 @@ Output:
 
 ### Getting the full Instagram and Facebook list
 
-Logged out, Instagram shows only the latest 12 reels and Facebook only the latest ~10, so the top 5 would be wrong. To get everything:
+Logged out, Instagram shows only the latest 12 reels and Facebook only the latest ~10, so the top list would be wrong. To get everything:
 
 1. Open **Google Chrome** and log into instagram.com and facebook.com (any account works).
 2. **Quit Chrome completely** (Cmd + Q) so the login is saved to disk.
