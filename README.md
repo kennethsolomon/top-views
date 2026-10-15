@@ -11,7 +11,7 @@ Works on public data only. No API keys, no account access to the profile being c
 | macOS 12+ (Apple Silicon or Intel) | Tested on macOS | Apple menu > About This Mac |
 | Xcode Command Line Tools | Gives you `git` | `git --version` |
 | Homebrew | Easiest way to get a current Python | `brew --version` |
-| Python 3.10 or newer | Runs the script | `python3 --version` |
+| Python 3.10 to 3.14 (3.13 recommended) | Runs the script | `python3.13 --version` |
 | Google Chrome | Only needed for the full Instagram/Facebook list (login) | Open Chrome |
 | ~500 MB free disk | Playwright downloads its own Chromium | |
 
@@ -33,11 +33,12 @@ The `python3` that ships with macOS is 3.9, which is too old. Install a newer on
    ```
    At the end, Homebrew prints two "Next steps" commands (`echo ... >> ~/.zprofile` and `eval ...`). Run them, then close and reopen Terminal.
 
-4. **Install Python:**
+4. **Install Python 3.13:**
    ```sh
-   brew install python
-   python3 --version   # should say 3.10 or higher
+   brew install python@3.13
+   python3.13 --version
    ```
+   Use 3.13 (3.10 to 3.14 also work). Very new releases like 3.15 don't have prebuilt packages yet and the install fails with an `ensurepip` error.
 
 5. **Download this project:**
    ```sh
@@ -125,7 +126,8 @@ The per-video labels are reliable; the one-line "topic winner" summary from smal
 
 | Problem | Fix |
 |---|---|
-| `Python 3.10+ is required` | `brew install python`, then rerun `sh install.sh` |
+| `No supported Python found` | `brew install python@3.13`, then rerun `sh install.sh` |
+| `ensurepip ... returned non-zero exit status 1` | Your Python is too new (e.g. 3.15). `brew install python@3.13`, then `sh install.sh` (it picks 3.13 automatically) |
 | `permission denied: ./top-views` | `chmod +x top-views` |
 | `Executable doesn't exist ... chromium` | `.venv/bin/python -m playwright install chromium` |
 | Instagram/Facebook still `PARTIAL` | Log in to Chrome, quit Chrome, rerun with `--cookies-from-browser chrome`, allow Keychain access |
