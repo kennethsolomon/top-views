@@ -51,7 +51,7 @@ The `python3` that ships with macOS is 3.9, which is too old. Install a newer on
    brew install python@3.13
    python3.13 --version
    ```
-   Use 3.13 (3.10 to 3.14 also work). Very new releases like 3.15 don't have prebuilt packages yet and the install fails with an `ensurepip` error.
+   Use 3.13 (3.10 to 3.14 also work). On macOS 26, if `sh install.sh` fails with an `ensurepip` error, see [macOS 26: empty `mac_ver` breaks pip](#macos-26-empty-mac_ver-breaks-pip).
 
 5. **Download this project:**
    ```sh
@@ -152,10 +152,32 @@ The per-video labels are reliable; the one-line "topic winner" summary from smal
 | Problem | Fix |
 |---|---|
 | `No supported Python found` | `brew install python@3.13`, then rerun `sh install.sh` |
-| `ensurepip ... returned non-zero exit status 1` | Your Python is too new (e.g. 3.15). `brew install python@3.13`, then `sh install.sh` (it picks 3.13 automatically) |
+| `ensurepip ... returned non-zero exit status 1` | Most likely the macOS 26 Homebrew Python bug below. Check with `python3.13 -c "import platform; print(platform.mac_ver())"`. If it prints `('', ...)`, apply the fix in [macOS 26: empty `mac_ver` breaks pip](#macos-26-empty-mac_ver-breaks-pip) |
 | `(.venv)` shows in your prompt, or install keeps failing after a manual fix | Run `deactivate`, then `rm -rf .venv` and `sh install.sh` |
 | `command not found: python` | Normal on macOS. Use `python3.13`, or just run `sh install.sh`, which finds it for you |
 | `permission denied: ./top-views` | `chmod +x top-views` |
 | `Executable doesn't exist ... chromium` | `.venv/bin/python -m playwright install chromium` |
 | Instagram/Facebook still `PARTIAL` | Log in to Chrome, quit Chrome, rerun with `--cookies-from-browser chrome`, allow Keychain access |
 | `every cookie decrypted to empty` | You pointed at a Playwright profile with `chrome:`; use `playwright:<profile dir>` instead |
+
+### macOS 26: empty `mac_ver` breaks pip
+
+On some macOS 26 Macs, Homebrew's Python links its XML module (`pyexpat`) to Apple's `/usr/lib/libexpat.1.dylib`, which doesn't work with that build. Python then reports an empty macOS version, and pip crashes with `ValueError: invalid literal for int() with base 10: ''` (shown by `install.sh` as an `ensurepip` error). Reinstalling Python doesn't help. Known upstream issue: Homebrew/homebrew-core #277330, CPython #135675.
+
+Check:
+```sh
+python3.13 -c "import platform; print(platform.mac_ver())"   # ('', ...) means you have it
+```
+
+Fix (relinks `pyexpat` to Homebrew's expat):
+```sh
+brew install expat
+PYEXPAT="$(python3.13 -c 'import importlib.util; print(importlib.util.find_spec("pyexpat").origin)')"
+otool -L "$PYEXPAT" | grep expat        # should show /usr/lib/libexpat.1.dylib
+install_name_tool -change /usr/lib/libexpat.1.dylib "$(brew --prefix expat)/lib/libexpat.1.dylib" "$PYEXPAT"
+codesign --sign - --force "$PYEXPAT"
+python3.13 -c "import platform; print(platform.mac_ver())"   # now shows ('26.x', ...)
+rm -rf .venv && PYTHON=python3.13 sh install.sh
+```
+
+`brew upgrade` / `brew reinstall python@3.13` undoes this; rerun the fix after. Updating macOS to the latest 26.x may also resolve it.
