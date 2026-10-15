@@ -4,6 +4,19 @@ Finds the **top most-viewed videos** (10 by default, set with `--top`) on a TikT
 
 Works on public data only. No API keys, no account access to the profile being checked.
 
+## Quick start
+
+Already have Homebrew? It's four commands:
+
+```sh
+brew install python@3.13
+git clone https://github.com/kennethsolomon/top-views.git && cd top-views
+sh install.sh
+./top-views https://www.tiktok.com/@abi_asija
+```
+
+New Mac, or something fails? Follow the full steps below.
+
 ## Prerequisites (macOS)
 
 | What | Why | How to check |
@@ -51,13 +64,25 @@ The `python3` that ships with macOS is 3.9, which is too old. Install a newer on
    ```sh
    sh install.sh
    ```
-   This creates a private Python environment in `.venv/`, installs the packages, and downloads Playwright's Chromium. It takes a few minutes the first time.
+   This picks a supported Python (3.13 first), creates a fresh Python environment in `.venv/`, installs the packages, and downloads Playwright's Chromium. It takes a few minutes the first time. The first line of output says which Python it used.
+
+   You don't need to activate the environment (`source .venv/bin/activate`). The `./top-views` command uses it for you.
 
 7. **Test it:**
    ```sh
    ./top-views https://www.tiktok.com/@abi_asija
    ```
    You should see a table of 10 videos. Reports are saved in the `reports/` folder.
+
+## Updating to the latest version
+
+```sh
+cd top-views
+git pull
+sh install.sh
+```
+
+Rerunning `install.sh` is safe. It rebuilds `.venv/` from scratch each time.
 
 ## Usage
 
@@ -128,6 +153,8 @@ The per-video labels are reliable; the one-line "topic winner" summary from smal
 |---|---|
 | `No supported Python found` | `brew install python@3.13`, then rerun `sh install.sh` |
 | `ensurepip ... returned non-zero exit status 1` | Your Python is too new (e.g. 3.15). `brew install python@3.13`, then `sh install.sh` (it picks 3.13 automatically) |
+| `(.venv)` shows in your prompt, or install keeps failing after a manual fix | Run `deactivate`, then `rm -rf .venv` and `sh install.sh` |
+| `command not found: python` | Normal on macOS. Use `python3.13`, or just run `sh install.sh`, which finds it for you |
 | `permission denied: ./top-views` | `chmod +x top-views` |
 | `Executable doesn't exist ... chromium` | `.venv/bin/python -m playwright install chromium` |
 | Instagram/Facebook still `PARTIAL` | Log in to Chrome, quit Chrome, rerun with `--cookies-from-browser chrome`, allow Keychain access |
