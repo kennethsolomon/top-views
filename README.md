@@ -109,12 +109,33 @@ Output:
 | Option | What it does |
 |---|---|
 | `--top N` | How many top videos per platform (default: 10). E.g. `--top 5`, `--top 20`. |
+| `--since YYYY-MM-DD` | Optional. Only videos uploaded on or after this date. |
+| `--until YYYY-MM-DD` | Optional. Only videos uploaded on or before this date. |
 | `--cookies-from-browser chrome` | Uses your Chrome login. Needed for the **full** Instagram and Facebook list (see below). |
 | `--cookies-from-browser chrome:<profile dir>` | Same, for a specific Chrome profile folder. |
 | `--cookies-from-browser playwright:<profile dir>` | For a Playwright-launched Chrome profile (e.g. `~/Library/Caches/ms-playwright-mcp/mcp-chrome-xxxx/Default`). |
 | `--out-dir <folder>` | Save reports somewhere else (default: `reports/`). |
 | `--topics` | Labels each video's topic using LM Studio (optional, see below). |
 | `--lm-model <id>` | LM Studio model to use with `--topics`. |
+
+### Filtering by date range (optional)
+
+Use `--since` and/or `--until` to rank only videos uploaded in a date range. Both are optional and can be combined with `--top`:
+
+```sh
+# top 10 from Q3
+./top-views <urls...> --since 2026-07-01 --until 2026-09-30
+
+# top 5 from October onward
+./top-views <urls...> --since 2026-10-01 --top 5
+
+# top 10 up to the end of June
+./top-views <urls...> --until 2026-06-30
+```
+
+- Dates are inclusive and use the upload date.
+- The output shows the range and how many videos matched (fewer than `--top` if the range is small).
+- Instagram and Facebook look up upload dates one video at a time, so a narrow range on a big profile can take a few minutes.
 
 ### Getting the full Instagram and Facebook list
 

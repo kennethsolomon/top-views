@@ -147,7 +147,7 @@ def ytdlp_meta(url: str, cookies_browser: str | None) -> tuple[str, date | None]
     return d.get("description") or d.get("title") or "", up
 
 
-def scrape_tiktok(url: str, cookies: list[dict], top_n: int) -> Result:
+def scrape_tiktok(url: str, cookies: list[dict], top_n: int, window: tuple[date | None, date | None]) -> Result:
     bodies, _ = capture(url, cookies)
     items: dict[str, dict] = {}
     expected = None
@@ -165,7 +165,7 @@ def scrape_tiktok(url: str, cookies: list[dict], top_n: int) -> Result:
                   caption=i.get("desc", ""), uploaded=datetime.fromtimestamp(int(i["createTime"]), timezone.utc).date())
             for i in items.values()]
     note = f"profile counter says {expected} videos" if expected is not None else ""
-    return Result("TikTok", url, len(vids), sorted(vids, key=lambda v: v.views, reverse=True)[:top_n], note)
+    return Result("TikTok", url, len(vids), pick_top(vids, top_n, window, lambda u: ("", None)), note)
 
 
 def walk(o):
@@ -189,7 +189,8 @@ def json_blobs(bodies: list[str]):
                 continue
 
 
-def scrape_instagram(url: str, cookies: list[dict], cookies_browser: str | None, top_n: int) -> Result:
+def scrape_instagram(url: str, cookies: list[dict], cookies_browser: str | None, top_n: int,
+                     window: tuple[date | None, date | None]) -> Result:
     user = re.search(r"instagram\.com/([\w.]+)", url).group(1)
     bodies, _ = capture(f"https://www.instagram.com/{user}/reels/", cookies)
     found: dict[str, Video] = {}
@@ -207,10 +208,11 @@ def scrape_instagram(url: str, cookies: list[dict], cookies_browser: str | None,
                 more = d["has_next_page"]
     if not found:
         raise PlatformError("No reels with play counts in Instagram responses (login wall or layout change)")
-    return finish("Instagram", url, list(found.values()), more, bool(cookies), cookies_browser, top_n)
+    return finish("Instagram", url, list(found.values()), more, bool(cookies), cookies_browser, top_n, window)
 
 
-def scrape_facebook(url: str, cookies: list[dict], cookies_browser: str | None, top_n: int) -> Result:
+def scrape_facebook(url: str, cookies: list[dict], cookies_browser: str | None, top_n: int,
+                    window: tuple[date | None, date | None]) -> Result:
     bodies, _ = capture(url.rstrip("/") + "/?sk=reels_tab", cookies)
     found: dict[str, tuple[int, bool]] = {}
     more = False
@@ -228,15 +230,33 @@ def scrape_facebook(url: str, cookies: list[dict], cookies_browser: str | None, 
     if not found:
         raise PlatformError("No reels with play counts in Facebook responses (login wall or layout change)")
     vids = [Video(f"https://www.facebook.com/reel/{v}/", n, approx=a) for v, (n, a) in found.items()]
-    return finish("Facebook", url, vids, more, bool(cookies), cookies_browser, top_n)
+    return finish("Facebook", url, vids, more, bool(cookies), cookies_browser, top_n, window)
 
 
-def finish(name: str, url: str, vids: list[Video], partial: bool, logged_in: bool, cookies_browser: str | None, top_n: int) -> Result:
-    top = sorted(vids, key=lambda v: v.views, reverse=True)[:top_n]
-    for v in top:
+def in_window(d: date | None, window: tuple[date | None, date | None]) -> bool:
+    since, until = window
+    if since is None and until is None:
+        return True
+    return d is not None and (since is None or d >= since) and (until is None or d <= until)
+
+
+def pick_top(vids: list[Video], top_n: int, window: tuple[date | None, date | None], meta) -> list[Video]:
+    # walk by views and fetch missing dates lazily, so a date filter only costs lookups until top_n match
+    top: list[Video] = []
+    for v in sorted(vids, key=lambda v: v.views, reverse=True):
+        if len(top) == top_n:
+            break
         if v.uploaded is None:
-            # the IG reels feed has no caption/date; yt-dlp reads public reels fine without cookies
-            v.caption, v.uploaded = ytdlp_meta(v.url, None if name == "Instagram" else cookies_browser)
+            v.caption, v.uploaded = meta(v.url)
+        if in_window(v.uploaded, window):
+            top.append(v)
+    return top
+
+
+def finish(name: str, url: str, vids: list[Video], partial: bool, logged_in: bool, cookies_browser: str | None, top_n: int,
+           window: tuple[date | None, date | None]) -> Result:
+    # the IG reels feed has no caption/date; yt-dlp reads public reels fine without cookies
+    top = pick_top(vids, top_n, window, lambda u: ytdlp_meta(u, None if name == "Instagram" else cookies_browser))
     note = ""
     if partial and logged_in:
         note = f"PARTIAL: {name} still reported more reels after {len(vids)} were loaded (scrolling stopped early)."
@@ -325,6 +345,8 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Top N most-viewed videos per social profile (public data).")
     ap.add_argument("urls", nargs="+")
     ap.add_argument("--top", type=int, default=10, metavar="N", help="how many top videos per platform (default: 10)")
+    ap.add_argument("--since", type=date.fromisoformat, metavar="YYYY-MM-DD", help="only videos uploaded on/after this date")
+    ap.add_argument("--until", type=date.fromisoformat, metavar="YYYY-MM-DD", help="only videos uploaded on/before this date")
     ap.add_argument("--topics", action="store_true", help="label topics with LM Studio")
     ap.add_argument("--lm-model", help="LM Studio model id (default: the currently loaded model)")
     ap.add_argument("--cookies-from-browser", metavar="BROWSER", help="e.g. chrome; uses your logged-in session")
@@ -332,19 +354,24 @@ def main() -> int:
     a = ap.parse_args()
     if a.top < 1:
         ap.error("--top must be 1 or more")
+    if a.since and a.until and a.since > a.until:
+        ap.error("--since must be on or before --until")
+    window = (a.since, a.until)
     cookies = browser_cookies(a.cookies_from_browser)
     results = []
     for url in a.urls:
         kind = platform_of(url)
         try:
             if kind == "tiktok":
-                r = scrape_tiktok(url, cookies, a.top)
+                r = scrape_tiktok(url, cookies, a.top, window)
             elif kind == "instagram":
-                r = scrape_instagram(url, cookies, a.cookies_from_browser, a.top)
+                r = scrape_instagram(url, cookies, a.cookies_from_browser, a.top, window)
             else:
-                r = scrape_facebook(url, cookies, a.cookies_from_browser, a.top)
+                r = scrape_facebook(url, cookies, a.cookies_from_browser, a.top, window)
         except (PlatformError, PlaywrightTimeout, subprocess.TimeoutExpired) as ex:
             r = Result(kind.capitalize(), url, error=str(ex))
+        if (a.since or a.until) and not r.error:
+            r.note = f"{r.note.rstrip('.')}. Date range: {a.since or 'any'} to {a.until or 'any'}, {len(r.top)} match".lstrip(". ")
         if a.topics and not r.error:
             try:
                 lm_topics(r, a.lm_model)
