@@ -127,6 +127,28 @@ Logged out, Instagram shows only the latest 12 reels and Facebook only the lates
 
 If the output says `PARTIAL`, the login wasn't picked up.
 
+#### Using a different Chrome profile
+
+`--cookies-from-browser chrome` reads Chrome's **Default** profile. If you're logged into Instagram/Facebook in another Chrome profile:
+
+1. In that Chrome window, open `chrome://version` and look at **Profile Path**. The last part is the profile name:
+
+   | Profile Path ends in | Use |
+   |---|---|
+   | `.../Google/Chrome/Default` | `--cookies-from-browser chrome` |
+   | `.../Google/Chrome/Profile 1` | `--cookies-from-browser "chrome:Profile 1"` |
+   | `.../Google/Chrome/Profile 2` | `--cookies-from-browser "chrome:Profile 2"` |
+
+2. Quit Chrome (Cmd + Q), then run, e.g.:
+   ```sh
+   ./top-views https://www.tiktok.com/@abi_asija \
+               https://www.instagram.com/abiasija/ \
+               https://www.facebook.com/people/Honest-Wealth-Builders/61574869258101/ \
+               --cookies-from-browser "chrome:Profile 1"
+   ```
+
+Keep the quotes; the profile name has a space.
+
 TikTok gives the full list without logging in.
 
 ### Topic labels with LM Studio (optional)
