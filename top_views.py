@@ -93,7 +93,7 @@ def browser_cookies(browser: str | None) -> list[dict]:
     return cookies
 
 
-def capture(page_url: str, cookies: list[dict], max_scrolls: int = 60) -> tuple[list[str], str]:
+def capture(page_url: str, cookies: list[dict], max_scrolls: int = 60, dismiss: str | None = None) -> tuple[list[str], str]:
     """Load the page in headless Chromium, scroll until no new network data, return response bodies + page text."""
     bodies: list[str] = []
 
@@ -115,6 +115,8 @@ def capture(page_url: str, cookies: list[dict], max_scrolls: int = 60) -> tuple[
         if resp is None or resp.status >= 400:
             raise PlatformError(f"GET {page_url} -> HTTP {resp.status if resp else 'no response'}")
         pg.wait_for_timeout(6000)
+        if dismiss and pg.locator(dismiss).first.is_visible():
+            pg.locator(dismiss).first.click()
         idle = 0
         while idle < 3 and max_scrolls > 0:
             n = len(bodies)
@@ -213,7 +215,8 @@ def scrape_instagram(url: str, cookies: list[dict], cookies_browser: str | None,
 
 def scrape_facebook(url: str, cookies: list[dict], cookies_browser: str | None, top_n: int,
                     window: tuple[date | None, date | None]) -> Result:
-    bodies, _ = capture(url.rstrip("/") + "/?sk=reels_tab", cookies)
+    # logged out, a login dialog swallows the wheel scroll so reels never paginate
+    bodies, _ = capture(url.rstrip("/") + "/?sk=reels_tab", cookies, dismiss='[role="dialog"] [aria-label="Close"]')
     found: dict[str, tuple[int, bool]] = {}
     more = False
     for blob in json_blobs(bodies):
