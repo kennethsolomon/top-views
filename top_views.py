@@ -116,7 +116,10 @@ def capture(page_url: str, cookies: list[dict], max_scrolls: int = 60, dismiss: 
             raise PlatformError(f"GET {page_url} -> HTTP {resp.status if resp else 'no response'}")
         pg.wait_for_timeout(6000)
         if dismiss and pg.locator(dismiss).first.is_visible():
-            pg.locator(dismiss).first.click()
+            try:
+                pg.locator(dismiss).first.click(timeout=3000)
+            except PlaywrightTimeout:  # dialog left or got covered mid-click; scroll without dismissing
+                pass
         idle = 0
         while idle < 3 and max_scrolls > 0:
             n = len(bodies)
